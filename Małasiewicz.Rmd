@@ -75,6 +75,11 @@ head(max10)
 
 max10 <- data.frame(datetime=datetime,max10)
 
+
+max10$max10[119412]<-NA
+
+max10<-na.omit(max10)
+
 hist(max10$max10, prob=TRUE)
 
 ```
@@ -110,7 +115,42 @@ tau <- fit$tau
 
 ```
 ```{r}
+par(mfrow=c(2,2))
 
+#--- histogram-gestosc
+hist(max10$max10, prob=TRUE,xlab=NA)
+curve(dSHASH(x,mu,sigma,nu,tau),add=T,col=2)
+
+#--- wykres kwantyl-kwantyl
+alpha=ppoints(100)
+
+kwantyle_teo <- qSHASH(alpha,mu,sigma,nu,tau)
+kwantyle_emp <- quantile(max10$max10,alpha,na.rm=TRUE)
+
+plot(kwantyle_emp,kwantyle_teo)
+abline(a=0,b=1,col=2)
+
+#do wykresow diagnostycznych mozna wykorzystac biblioteke: fitdistrplus
+library(fitdistrplus)
+
+#trzeba ponownie wyestymowac parametry rozkladu GT
+X <- as.numeric(na.omit(max10$max10))
+
+fSHASH <- fitdist(X, "SHASH", start =list(mu=mu,sigma=sigma,nu=nu,tau=tau), method="mle")
+
+
+
+
+plot(fSHASH) #to moze potrwac
+
+#-- wykres dystrybuanta emp.-teo.
+plot(ecdf(max10$max10))
+curve(pSHASH(x,mu,sigma,nu,tau), xlim=c(-10,35),col=2,add=TRUE)
+
+```
+
+```{r}
+fSHASH$aic
 ```
 
 
