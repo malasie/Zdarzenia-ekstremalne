@@ -1,0 +1,159 @@
+---
+title: "Analiza maksymalnych temperatur"
+author: "Małasiewicz Maria"
+date: "6 04 2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+Pszenno - wieś w Polsce położona w województwie dolnośląskim, w powiecie świdnickim, w gminie Świdnica.
+współrzędne geograficzne: 50°85'38.9"N, 16°54'30.6"E
+
+
+
+```{r}
+Psz <- coord233_alt[coord233_alt$place=="PSZENNO",]
+library(maps)
+poland <- map('world','poland', fill=T, col='gray')
+points(Psz[c("lon","lat")],pch=19,col=2)		
+```
+
+```{r}
+b<- c()
+for(i in 0:10){
+  for(j in 1:12){
+    if(j>5 && j<9){
+      b <-c(b,j+(12*i))
+    }
+  }
+}
+
+b
+```
+
+
+```{r}
+ n<- length(data0); n
+
+#pierwszy miesiac
+
+i <- 1 
+
+x <- data0[[i]]$X250160090
+head(x)
+
+#maksima 10-minutowe dla miesiecy letnich z wszystkich lat, dla danej stacji
+
+max10 <- c()
+datetime <- c()
+
+for(i in 1:33){
+  max10 <- c(max10,data0[[b[i]]]$X250160090)
+  datetime <- c(datetime,as.character(data0[[b[i]]]$datetime))
+}
+
+#czy dana stacja jest wsrod stacji z danego miesiaca
+x <- c()
+for(i in 1:33){
+  
+  sti <- colnames(data0[[b[i]]])
+  x[i] <- "X250160090" %in% sti
+}
+
+sum(x)
+which(x==TRUE)
+
+#===== przeksztalcenie kolumny datetime
+library(tidyr)
+#zapisanie w formacie tylko Date
+max10 <- data.frame(date=as.Date(datetime),max10=max10)
+head(max10)
+tail(max10)
+rownames(max10) <- c()
+
+max10 <- separate(max10,date,c("year","mth","day"), convert=TRUE)
+head(max10)
+
+max10 <- data.frame(datetime=datetime,max10)
+
+
+max10$max10[119412]<-NA
+
+max10<-na.omit(max10)
+
+hist(max10$max10, prob=TRUE)
+
+```
+
+
+
+```{r}
+
+library(gamlss)
+
+t1 <- Sys.time()
+fit <- fitDist(max10$max10,type="realline")
+t2 <- Sys.time()
+t2-t1
+
+#obejrzyjmy wyniki estymacji
+
+#--- Jaki rozklad ma najmniejsze AIC? 
+#Dostaniemy tez  skrot rozkladu, potrzebny dalej do np. gestosci dGT(x,parametry)
+fit$family  #np. "GT"            "Generalized t"
+
+
+#--- ,,dopasowane rozklady'' posortowane wedlug malejacej wartosci AIC
+fit$fits    
+
+#--- skroty nazw  parametrow ,,najlepszego rozkladu'' i wartosci parametrow
+fit$parameters  
+
+mu <- fit$mu
+sigma <- fit$sigma
+nu <- fit$nu
+tau <- fit$tau
+
+```
+```{r}
+par(mfrow=c(2,2))
+
+#--- histogram-gestosc
+hist(max10$max10, prob=TRUE,xlab=NA)
+curve(dSHASH(x,mu,sigma,nu,tau),add=T,col=2)
+
+#--- wykres kwantyl-kwantyl
+alpha=ppoints(100)
+
+kwantyle_teo <- qSHASH(alpha,mu,sigma,nu,tau)
+kwantyle_emp <- quantile(max10$max10,alpha,na.rm=TRUE)
+
+plot(kwantyle_emp,kwantyle_teo)
+abline(a=0,b=1,col=2)
+
+#do wykresow diagnostycznych mozna wykorzystac biblioteke: fitdistrplus
+library(fitdistrplus)
+
+#trzeba ponownie wyestymowac parametry rozkladu GT
+X <- as.numeric(na.omit(max10$max10))
+
+fSHASH <- fitdist(X, "SHASH", start =list(mu=mu,sigma=sigma,nu=nu,tau=tau), method="mle")
+
+
+
+
+plot(fSHASH) #to moze potrwac
+
+#-- wykres dystrybuanta emp.-teo.
+plot(ecdf(max10$max10))
+curve(pSHASH(x,mu,sigma,nu,tau), xlim=c(-10,35),col=2,add=TRUE)
+
+```
+
+```{r}
+fSHASH$aic
+```
+
+

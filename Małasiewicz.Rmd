@@ -2,32 +2,45 @@
 title: "Analiza maksymalnych temperatur"
 author: "Małasiewicz Maria"
 date: "6 04 2022"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
-
 
 Pszenno - wieś w Polsce położona w województwie dolnośląskim, w powiecie świdnickim, w gminie Świdnica.
 współrzędne geograficzne: 50°85'38.9"N, 16°54'30.6"E
 
 
 
-```{r echo=FALSE}
-Psz <- coord233_alt[coord233_alt$place=="PSZENNO",]
+```{r  echo=FALSE}
+library(tidyr)
+library(gamlss)
 library(maps)
-poland <- map('world','poland', fill=T, col='gray')
-points(Psz[c("lon","lat")],pch=19,col=2)		
+
+coord233_alt=(read.csv2(file="coord233_alt.csv",sep=",", quote="\"\""))
+Psz <- coord233_alt[coord233_alt$place=="PSZENNO",]
+path_to_files<- "D:/Studia/MMAD/sem6/Zdarzenia ekstremalne/Zdarzenia ekstremalne/temp.stations-all"
+L <- as.list(list.files(path=path_to_files))
+L <- paste0(path_to_files,"\\",L)
+data0 <- lapply(L,read.csv)
+
 ```
 ```{r}
-b<- c()
+poland <- map('world','poland', fill=T, col='gray')
+points(Psz[c("lon","lat")],pch=19,col=2)	
+```
+
+```{r echo=FALSE}
+lato<- c()
 for(i in 0:10){
   for(j in 1:12){
     if(j>5 && j<9){
-      b <-c(b,j+(12*i))
+      lato <-c(lato,j+(12*i))
     }
   }
 }
 
-b
 ```
 
 
@@ -43,44 +56,44 @@ head(x)
 
 #maksima 10-minutowe dla miesiecy letnich z wszystkich lat, dla danej stacji
 
-max10 <- c()
-datetime <- c()
+max10_lato <- c()
+datetime_lato <- c()
 
 for(i in 1:33){
-  max10 <- c(max10,data0[[b[i]]]$X250160090)
-  datetime <- c(datetime,as.character(data0[[b[i]]]$datetime))
+  max10_lato <- c(max10_lato,data0[[lato[i]]]$X250160090)
+  datetime_lato <- c(datetime_lato,as.character(data0[[lato[i]]]$datetime))
 }
 
 #czy dana stacja jest wsrod stacji z danego miesiaca
 x <- c()
 for(i in 1:33){
   
-  sti <- colnames(data0[[b[i]]])
+  sti <- colnames(data0[[lato[i]]])
   x[i] <- "X250160090" %in% sti
 }
 
 sum(x)
 which(x==TRUE)
 
-#===== przeksztalcenie kolumny datetime
-library(tidyr)
+#===== przeksztalcenie kolumny datetime_lato
+
 #zapisanie w formacie tylko Date
-max10 <- data.frame(date=as.Date(datetime),max10=max10)
-head(max10)
-tail(max10)
-rownames(max10) <- c()
+max10_lato <- data.frame(date=as.Date(datetime_lato),max10_lato=max10_lato)
+head(max10_lato)
+tail(max10_lato)
+rownames(max10_lato) <- c()
 
-max10 <- separate(max10,date,c("year","mth","day"), convert=TRUE)
-head(max10)
+max10_lato <- separate(max10_lato,date,c("year","mth","day"), convert=TRUE)
+head(max10_lato)
 
-max10 <- data.frame(datetime=datetime,max10)
+max10_lato <- data.frame(datetime=datetime_lato,max10_lato)
 
 
-max10$max10[119412]<-NA
+#max10_lato$max10_lato[119412]<-NA
 
-max10<-na.omit(max10)
+max10_lato<-na.omit(max10_lato)
 
-hist(max10$max10, prob=TRUE)
+hist(max10_lato$max10_lato, prob=TRUE)
 
 ```
 
@@ -88,10 +101,8 @@ hist(max10$max10, prob=TRUE)
 
 ```{r}
 
-library(gamlss)
-
 t1 <- Sys.time()
-fit <- fitDist(max10$max10,type="realline")
+fit <- fitDist(max10_lato$max10,type="realline")
 t2 <- Sys.time()
 t2-t1
 
@@ -114,43 +125,73 @@ nu <- fit$nu
 tau <- fit$tau
 
 ```
+
 ```{r}
-par(mfrow=c(2,2))
+layout(matrix(c(1,1,2,3), 2, 2, byrow = TRUE), heights = c(12, 10), widths = c(2, 2))
 
 #--- histogram-gestosc
-hist(max10$max10, prob=TRUE,xlab=NA)
+hist(max10_lato$max10_lato, prob=TRUE,xlab=NA, ylab="Gęstość", main="Histogram maksimów 10-minutowych dla miesięcy letnich")
 curve(dSHASH(x,mu,sigma,nu,tau),add=T,col=2)
 
 #--- wykres kwantyl-kwantyl
 alpha=ppoints(100)
 
 kwantyle_teo <- qSHASH(alpha,mu,sigma,nu,tau)
-kwantyle_emp <- quantile(max10$max10,alpha,na.rm=TRUE)
+kwantyle_emp <- quantile(max10_lato$max10_lato,alpha,na.rm=TRUE)
 
-plot(kwantyle_emp,kwantyle_teo)
+plot(kwantyle_emp,kwantyle_teo, main="Q-Q", xlab="Kwantyle empiryczne", ylab="Kwantyle teoretyczne")
 abline(a=0,b=1,col=2)
 
 #do wykresow diagnostycznych mozna wykorzystac biblioteke: fitdistrplus
 library(fitdistrplus)
 
 #trzeba ponownie wyestymowac parametry rozkladu GT
-X <- as.numeric(na.omit(max10$max10))
+X <- as.numeric(na.omit(max10_lato$max10_lato))
 
-fSHASH <- fitdist(X, "SHASH", start =list(mu=mu,sigma=sigma,nu=nu,tau=tau), method="mle")
-
-
+#fSHASH <- fitdist(X, "SHASH", start =list(mu=mu,sigma=sigma,nu=nu,tau=tau))
 
 
-plot(fSHASH) #to moze potrwac
+
+
+#plot(fSHASH) #to moze potrwac
 
 #-- wykres dystrybuanta emp.-teo.
-plot(ecdf(max10$max10))
+plot(ecdf(max10_lato$max10_lato), main="Dystrybuanta empiryczna")
 curve(pSHASH(x,mu,sigma,nu,tau), xlim=c(-10,35),col=2,add=TRUE)
 
 ```
 
+
 ```{r}
-fSHASH$aic
+library(evir)
+
+b <- 6*24*30
+
+fit1<-evir::gev(data0, b)
+fit1
+
+parGEV<-fit1$par.ests
+parGEV
+
+xi<-parGEV[[1]]
+sigma <- parGEV[[2]]
+mu <- parGEV[[3]]
+
+Max <- fit1$data
+
 ```
 
+```{r}
+#poziom zwrotu
+
+k20 <- 20*92*24*6
+k50 <- 50*92*24*6
+
+
+x20 <-qSHASH(1-1/k20, mu=mu, sigma=sigma, nu=nu, tau=tau)
+x50 <- qSHASH(1-1/k50, mu=mu, sigma=sigma, nu=nu, tau=tau)
+
+x20; x50
+
+```
 
