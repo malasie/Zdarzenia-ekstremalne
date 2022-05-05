@@ -41,18 +41,6 @@ for(i in 1:33){
   
 }
 
-#czy dana stacja jest wsrod stacji z danego miesiaca
-x <- c()
-for(i in 1:33){
-  
-  sti <- colnames(data0[[wiosna[i]]])
-  x[i] <- "X250160090" %in% sti
-}
-
-sum(x)
-which(x==TRUE)
-
-
 
 #zapisanie w formacie tylko Date
 max10_zima <- data.frame(date=as.Date(datetime_zima),max10=max10_zima)
@@ -68,7 +56,7 @@ max10_zima <- data.frame(datetime=datetime_zima,max10_zima)
 
 max10_zima<-na.omit(max10_zima)
 
-hist(max10_zima$max10, prob=TRUE)
+
 
 
 t1 <- Sys.time()
@@ -76,17 +64,13 @@ fit_z <- fitDist(max10_zima$max10,type="realline")
 t2 <- Sys.time()
 t2-t1
 
-#obejrzyjmy wyniki estymacji
 
-#--- Jaki rozklad ma najmniejsze AIC? 
-#Dostaniemy tez  skrot rozkladu, potrzebny dalej do np. gestosci dGT(x,parametry)
-fit_z$family  #np. "GT"            "Generalized t"
+fit_z$family  
 
 
-#--- ,,dopasowane rozklady'' posortowane wedlug malejacej wartosci AIC
 fit_z$fits    
 
-#--- skroty nazw  parametrow ,,najlepszego rozkladu'' i wartosci parametrow
+
 fit_z$parameters  
 
 mu_z <- fit_z$mu

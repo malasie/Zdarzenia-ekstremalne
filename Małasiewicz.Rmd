@@ -89,7 +89,9 @@ head(max10_lato)
 max10_lato <- data.frame(datetime=datetime_lato,max10_lato)
 
 
-#max10_lato$max10_lato[119412]<-NA
+max10_lato<-na.omit(max10_lato)
+
+max10_lato$max10_lato[118831]<-NA
 
 max10_lato<-na.omit(max10_lato)
 
